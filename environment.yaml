@@ -1,0 +1,11 @@
+name: exp
+channels:
+- defaults
+dependencies:
+- python=3.7
+- pycairo
+- pip:
+    - mypy==0.641
+    - typing-extensions==3.6.6
+    - pytest
+
