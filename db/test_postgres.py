@@ -19,15 +19,68 @@ nothing is written to disk. This is a feature good for tests like in this
 module. See:
 https://stackoverflow.com/questions/9407442/optimise-postgresql-for-fast-testing
 """
-import json
+import subprocess
+from typing import List
 
 import psycopg2
 import pytest
 from psycopg2._psycopg import ProgrammingError
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from sqlalchemy import create_engine, MetaData, Table, Column, JSON
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer
+from sqlalchemy.dialects.postgresql import JSON
 
 TEST_DB_NAME = 'test'
+CONTAINER_NAME = 'test-postgres'
+POSTGRES_PORT = 5432
+
+
+def postgres_container_id_cmd() -> List[str]:
+    return f'docker ps -f name={CONTAINER_NAME} -q'.split(' ')
+
+
+def postgres_container_running() -> bool:
+    return len(subprocess.check_output(postgres_container_id_cmd())) > 0
+
+
+def postgres_image_id_cmd() -> List[str]:
+    return 'docker images postgres -q'.split(' ')
+
+
+def postgres_image_is_pulled() -> bool:
+    return len(subprocess.check_output(postgres_image_id_cmd())) > 0
+
+
+def start_postgres_cmd() -> List[str]:
+    return (
+        f'docker run '
+        f'--name {CONTAINER_NAME} '
+        f'-e POSTGRES_PASSWORD=test '
+        f'-p {POSTGRES_PORT}:{POSTGRES_PORT} '
+        f'-d postgres '
+        # Following options are good for unit testing as they avoid writes
+        # to disk. These are bad settings to use if you like your data to
+        # be persistent across time, so don't cut and paste these options
+        # into arbitrary use cases.
+        f'-c fsync=off '
+        f'-c full_page_writes=false'
+    ).split(' ')
+
+
+def pull_postgres_cmd() -> List[str]:
+    return 'docker pull postgres'.split(' ')
+
+
+def ensure_posgres_container_is_up() -> None:
+    if postgres_container_running():
+        print('Postgres is running in docker. Ready to test.')
+        return
+
+    if not postgres_image_is_pulled():
+        print('Pulling postgres.')
+        subprocess.check_call(pull_postgres_cmd())
+
+    print('Start postgres in docker.')
+    subprocess.check_call(start_postgres_cmd())
 
 
 @pytest.fixture(scope='module')
@@ -35,6 +88,10 @@ def postgres_conn():
     """
     This connection is (re)used by tdb to create and remove the test database.
     """
+    # This fixture has module scope so we only do this costly docker operation
+    # once per test run, not once per unit test.
+    ensure_posgres_container_is_up()
+
     conn = psycopg2.connect(
         dbname='postgres',
         user='postgres',
@@ -101,12 +158,47 @@ def test_create_table(teng):
         'json_table', meta,
         Column('json', JSON)
     )
+    table.create()
+
+
+def test_insert_into_table(teng):
+    meta = MetaData(teng)
+    table = Table(
+        'json_table', meta,
+        Column('json', JSON)
+    )
+    table.create()
     with teng.connect() as conn:
-        table.create()
         j = {'a': 1, 'b': 2}
         stmt = table.insert().values(
-            json=json.dumps(j)
+            json=j
         )
         conn.execute(stmt)
         results = list(conn.execute(table.select()))
-        assert j == json.loads(results[0][0])
+        assert j == results[0][0]
+
+
+def test_json_query(teng):
+    meta = MetaData(teng)
+    table = Table(
+        'json_table', meta,
+        Column('doc', JSON)
+    )
+    table.create()
+    with teng.connect() as conn:
+        j = {'a': 1, 'b': 2}
+        stmt = table.insert().values(
+            doc=j
+        )
+        conn.execute(stmt)
+        stmt = table.insert().values(
+            doc={'a': 2, 'b': 3}
+        )
+        conn.execute(stmt)
+        results = list(conn.execute(
+            table.select().where(
+                # The effect of astext seems to be to lift '->' to '->>'
+                table.c.doc['a'].astext.cast(Integer) == 1
+            )
+        ))
+        assert j == results[0][0]
