@@ -86,8 +86,9 @@ def ensure_posgres_container_is_up() -> None:
 @pytest.fixture(scope='module')
 def postgres_conn():
     """
-    This connection is (re)used by tdb to create and remove the test database.
+    This connection is (re)used by teng to create and remove the test database.
     """
+
     # This fixture has module scope so we only do this costly docker operation
     # once per test run, not once per unit test.
     ensure_posgres_container_is_up()
@@ -104,7 +105,9 @@ def postgres_conn():
 @pytest.fixture
 def teng(postgres_conn):
     """
-    This fixture creates a fresh database for each unit test.
+    This fixture creates a fresh database for each unit test. After the test
+    using this fixture completes it will remove the database. This ensures that
+    each unit test starts with an empty database to test against.
     """
     yield from teng_inner(postgres_conn)
 
@@ -143,7 +146,9 @@ def test_engine(teng):
 
 def test_db_empty(postgres_conn):
     """
-    Test that the database is empty before a test.
+    Verify that teng fixture cleans up the database after each test. We can't
+    call a pytest fixture directly so we call an inner function that does the
+    work.
     """
     for eng in teng_inner(postgres_conn):
         eng.execute("CREATE TABLE test (col text)")
