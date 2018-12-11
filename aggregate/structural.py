@@ -1,7 +1,3 @@
-"""
-This work was inspired by this talk by Rich Hicky
-https://www.reddit.com/r/haskell/comments/a1ofh2/maybe_not_rich_hickey/
-"""
 from typing_extensions import Protocol
 
 

@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from typing_extensions import Protocol
 
 
-# As per PEP 544 we are allowed to use protocol variables to spec
-# class members.
+# The following notation looks like dataclasses, but it is a particular
+# notation allowed by PEP 544 to specify the members that implement these
+# protocols. To avoid any ambiguity these do specify instance variables.
 
 class PWidth(Protocol):
     width: float
@@ -38,6 +39,8 @@ class Color:
     a: float
 
 
+# This property had to be made read only to avoid a mypy error. See:
+# https://github.com/python/mypy/issues/5998
 class PColorProp(Protocol):
     @abstractmethod
     @property
