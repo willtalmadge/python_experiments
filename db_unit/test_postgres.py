@@ -212,9 +212,8 @@ def test_json_query(teng):
 
 def test_serial_column(teng):
     """
-    Test that
-    :param teng:
-    :return:
+    Test that the following method creates an automatically incrementing
+    primary key column.
     """
     meta = MetaData(teng)
     table = Table(

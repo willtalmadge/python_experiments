@@ -5,7 +5,7 @@ This is an attempt to take some of these ideas and implement them with python
 language features. The closest off the shelf tool for accomplishing this is a
 combination of mypy and PEP 544 protocols.
 
-Of course this approach is not as rich as what Rich is suggestion. But, what
+Of course this approach is not as rich as what Rich is suggesting. But, what
 he is suggesting doesn't even exist in Clojure yet. This experiment explores
 what can be done now with off the shelf tools.
 
