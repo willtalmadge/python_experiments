@@ -28,6 +28,7 @@ from psycopg2._psycopg import ProgrammingError
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer
 from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.sql.ddl import CreateTable
 
 TEST_DB_NAME = 'test'
 CONTAINER_NAME = 'test-postgres'
@@ -207,3 +208,28 @@ def test_json_query(teng):
             )
         ))
         assert j == results[0][0]
+
+
+def test_serial_column(teng):
+    """
+    Test that
+    :param teng:
+    :return:
+    """
+    meta = MetaData(teng)
+    table = Table(
+        'serial_table', meta,
+        # autoincrement=True not necessary for postgres to create a SERIAL
+        # column
+        Column('id', Integer, primary_key=True)
+    )
+    assert 'SERIAL' in str(CreateTable(table).compile(teng))
+    table.create()
+    with teng.connect() as conn:
+        conn.execute(table.insert())
+        conn.execute(table.insert())
+        results = conn.execute(table.select())
+        assert [
+                   (1,),
+                   (2,)
+               ] == list(results)
