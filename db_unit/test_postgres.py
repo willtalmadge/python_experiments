@@ -24,7 +24,7 @@ import psycopg2
 import pytest
 from psycopg2._psycopg import ProgrammingError
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, func
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.sql.ddl import CreateTable
 
@@ -189,11 +189,40 @@ def test_sequence(teng):
     Create and consume a postgres sequence.
     """
     with teng.connect() as conn:
-        conn.execute(
-            'create sequence id'
-        )
+        conn.execute('create sequence id')
 
         result = conn.execute(
             "select nextval('id'), nextval('id')"
         )
         assert [(1, 2)] == list(result)
+
+
+def test_sequence_insert(teng):
+    """
+    How to call nextval in a sqlalchemy insert statement. Also an example of
+    how to called a stored procedure in an insert statement.
+    """
+    meta = MetaData(teng)
+    table = Table(
+        'table', meta,
+        Column('id', Integer),
+        Column('tx', Integer)
+    )
+    table.create()
+    with teng.connect() as conn:
+        conn.execute('create sequence id')
+        conn.execute('create sequence tx')
+
+        conn.execute(table.insert().values(
+            id=func.nextval('id'),
+            tx=func.nextval('tx')
+        ))
+        conn.execute(table.insert().values(
+            id=func.nextval('id'),
+            tx=func.nextval('tx')
+        ))
+        result = conn.execute(table.select())
+        assert [
+                   (1, 1),
+                   (2, 2)
+               ] == list(result)
