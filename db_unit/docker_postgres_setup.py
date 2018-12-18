@@ -1,15 +1,19 @@
 import subprocess
 from typing import List
 
-from db_unit.test_postgres import CONTAINER_NAME, POSTGRES_PORT
 
-
-def postgres_container_id_cmd() -> List[str]:
+def postgres_running_container_id_cmd() -> List[str]:
     return f'docker ps -f name={CONTAINER_NAME} -q'.split(' ')
+
+def postgres_stopped_container_id_cmd() -> List[str]:
+    return f'docker ps -f name={CONTAINER_NAME} -f status=exited -q'.split(' ')
 
 
 def postgres_container_running() -> bool:
-    return len(subprocess.check_output(postgres_container_id_cmd())) > 0
+    return len(subprocess.check_output(postgres_running_container_id_cmd())) > 0
+
+def postgres_container_stopped_exists() -> bool:
+    return len(subprocess.check_output(postgres_stopped_container_id_cmd())) > 0
 
 
 def postgres_image_id_cmd() -> List[str]:
@@ -45,9 +49,20 @@ def ensure_posgres_container_is_up() -> None:
         print('Postgres is running in docker. Ready to test.')
         return
 
+    if postgres_container_stopped_exists():
+        print('Removing old stopped container')
+        subprocess.check_call(
+            f'docker rm {CONTAINER_NAME}'.split(' ')
+        )
+
     if not postgres_image_is_pulled():
         print('Pulling postgres.')
         subprocess.check_call(pull_postgres_cmd())
 
     print('Start postgres in docker.')
     subprocess.check_call(start_postgres_cmd())
+
+
+TEST_DB_NAME = 'test'
+CONTAINER_NAME = 'test-postgres'
+POSTGRES_PORT = 5432

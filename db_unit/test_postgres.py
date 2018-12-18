@@ -28,11 +28,10 @@ from sqlalchemy import create_engine, MetaData, Table, Column, Integer
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.sql.ddl import CreateTable
 
-from db_unit.docker_postgres_setup import ensure_posgres_container_is_up
-
-TEST_DB_NAME = 'test'
-CONTAINER_NAME = 'test-postgres'
-POSTGRES_PORT = 5432
+from db_unit.docker_postgres_setup import (
+    ensure_posgres_container_is_up,
+    TEST_DB_NAME
+)
 
 
 @pytest.fixture(scope='module')
@@ -183,3 +182,18 @@ def test_serial_column(teng):
                    (1,),
                    (2,)
                ] == list(results)
+
+
+def test_sequence(teng):
+    """
+    Create and consume a postgres sequence.
+    """
+    with teng.connect() as conn:
+        conn.execute(
+            'create sequence id'
+        )
+
+        result = conn.execute(
+            "select nextval('id'), nextval('id')"
+        )
+        assert [(1, 2)] == list(result)
